@@ -1,39 +1,56 @@
+
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { evaluateVitals } from "@/lib/health-rules";
 
 export async function POST(request: Request) {
   try {
-    // Verify the device token
+    // 1. Authenticate the hardware device
     const deviceToken = request.headers.get("x-device-token");
 
-    if (
-      !process.env.ORBIT_DEVICE_TOKEN ||
-      deviceToken !== process.env.ORBIT_DEVICE_TOKEN
-    ) {
+    if (!deviceToken) {
       return NextResponse.json(
-        { error: "Unauthorized device" },
+        { error: "Missing device token" },
         { status: 401 }
       );
     }
 
-    // Get the astronaut account assigned to this device
-    const userId = process.env.ORBIT_DEVICE_USER_ID;
+    // Hash the token before looking it up in the database
+    const tokenHash = createHash("sha256")
+      .update(deviceToken)
+      .digest("hex");
 
-    if (!userId) {
+    const { data: device, error: deviceError } = await supabaseAdmin
+      .from("user_devices")
+      .select("id, user_id")
+      .eq("token_hash", tokenHash)
+      .is("revoked_at", null)
+      .maybeSingle();
+
+    if (deviceError) {
+      console.error("Device authentication failed:", deviceError.message);
+
       return NextResponse.json(
-        { error: "Device user is not configured" },
+        { error: "Device authentication failed" },
         { status: 500 }
       );
     }
 
+    if (!device) {
+      return NextResponse.json(
+        { error: "Invalid or revoked device token" },
+        { status: 401 }
+      );
+    }
+
+    const userId = device.user_id;
+
+    // 2. Parse and validate incoming measurements
     const body = await request.json();
 
-    const heartRate = body.heartRate;
-    const spo2 = body.spo2;
-    const temperatureC = body.temperatureC;
+    const { heartRate, spo2, temperatureC } = body;
 
-    // Validate incoming measurements
     if (
       !Number.isInteger(heartRate) ||
       heartRate < 1 ||
@@ -53,7 +70,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Save the reading using the server-only admin client
+    // 3. Save the reading under the device owner's account
     const { data, error } = await supabaseAdmin
       .from("vital_readings")
       .insert({
@@ -74,7 +91,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Run the health rules engine
+    // 4. Run the health rules engine
     const insights = evaluateVitals({
       id: data.id,
       heart_rate: data.heart_rate,
@@ -83,7 +100,7 @@ export async function POST(request: Request) {
       recorded_at: data.recorded_at,
     });
 
-    // Save generated insights
+    // 5. Save generated health insights
     const savedInsights = [];
 
     for (const insight of insights) {
@@ -98,15 +115,29 @@ export async function POST(request: Request) {
         .single();
 
       if (insightError) {
-        console.error("Device insight insert failed:", insightError.message);
+        console.error(
+          "Device insight insert failed:",
+          insightError.message
+        );
       } else if (saved) {
         savedInsights.push(saved);
       }
     }
 
+    // 6. Update device communication timestamp
+    const { error: updateError } = await supabaseAdmin
+      .from("user_devices")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", device.id);
+
+    if (updateError) {
+      console.error("Device last-seen update failed:", updateError.message);
+    }
+
     return NextResponse.json(
       {
         success: true,
+        deviceId: device.id,
         reading: data,
         insights: savedInsights,
       },

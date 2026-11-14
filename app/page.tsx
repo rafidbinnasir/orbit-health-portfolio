@@ -14,6 +14,7 @@ import AstronautProfile from "./components/AstronautProfile";
 import AnatomicalMonitor from "./components/AnatomicalMonitor";
 import SleepCheckIn from "./components/SleepCheckIn";
 import MLAnomalyAlerts from "./components/MLAnomalyAlerts";
+import DeviceManagement from "./components/DeviceManagement";
 
 type VitalReading = {
   id: number;
@@ -310,7 +311,12 @@ export default function Home() {
               >
                 Analytics
               </a>
-
+<a
+  href="#devices"
+  className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+>
+  Devices
+</a>
               <Link
                 href="/profile"
                 className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
@@ -406,6 +412,19 @@ export default function Home() {
                 >
                   Analytics
                 </a>
+                <a
+  href="#devices"
+  className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+>
+  Devices
+</a>
+<a
+  href="#devices"
+  onClick={() => setMobileMenuOpen(false)}
+  className="rounded-lg px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+>
+  Device Management
+</a>
                 <Link
                   href="/profile"
                   onClick={() => setMobileMenuOpen(false)}
@@ -487,7 +506,10 @@ export default function Home() {
           <section className="mb-8">
             <MLAnomalyAlerts />
           </section>
-
+{/* CONNECTED HARDWARE DEVICE MANAGEMENT */}
+<section id="devices" className="mb-8 scroll-mt-24">
+  <DeviceManagement />
+</section>
           {/* 3D ANATOMICAL TELEMETRY MONITOR */}
           <section id="anatomy" className="mb-8 scroll-mt-20">
             <AnatomicalMonitor readings={readings} loading={loading} />
