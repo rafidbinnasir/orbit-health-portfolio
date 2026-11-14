@@ -28,7 +28,8 @@ export async function GET() {
       .from("user_devices")
       .select("id, device_name, created_at, last_seen_at, revoked_at")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+.is("revoked_at", null)
+.order("created_at", { ascending: false });
 
     if (error) {
       console.error("Device list failed:", error.message);
