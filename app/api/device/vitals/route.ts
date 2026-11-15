@@ -16,7 +16,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Hash the token before looking it up in the database
     const tokenHash = createHash("sha256")
       .update(deviceToken)
       .digest("hex");
@@ -124,25 +123,102 @@ export async function POST(request: Request) {
       }
     }
 
-    // 6. Update device communication timestamp
+    // 6. Run the Isolation Forest model through Render
+    let mlPrediction = null;
+    let mlPredictionError = null;
+
+    try {
+      const mlApiUrl = process.env.ML_API_URL;
+      const mlApiSecret = process.env.ML_API_SECRET;
+
+      if (!mlApiUrl || !mlApiSecret) {
+        throw new Error("ML API environment variables are missing");
+      }
+
+      const mlResponse = await fetch(
+        `${mlApiUrl.replace(/\/$/, "")}/predict`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": mlApiSecret,
+          },
+          body: JSON.stringify({
+            heart_rate: data.heart_rate,
+            spo2: data.spo2,
+            temperature: data.temperature_c,
+          }),
+          cache: "no-store",
+        }
+      );
+
+      if (!mlResponse.ok) {
+        throw new Error(`ML API returned ${mlResponse.status}`);
+      }
+
+      const result = await mlResponse.json();
+
+      if (
+        ![-1, 1].includes(result.prediction) ||
+        !["NORMAL", "ANOMALY"].includes(result.status) ||
+        !Number.isFinite(result.anomaly_score)
+      ) {
+        throw new Error("Invalid ML prediction response");
+      }
+
+      // Save the prediction in Supabase
+      const {
+        data: savedPrediction,
+        error: predictionError,
+      } = await supabaseAdmin
+        .from("ml_predictions")
+        .insert({
+          reading_id: data.id,
+          user_id: userId,
+          prediction: result.prediction,
+          status: result.status,
+          anomaly_score: result.anomaly_score,
+        })
+        .select()
+        .single();
+
+      if (predictionError) {
+        throw new Error(predictionError.message);
+      }
+
+      mlPrediction = savedPrediction;
+
+    } catch (error) {
+      console.error("Device ML prediction failed:", error);
+      mlPredictionError = "Could not generate or save ML prediction";
+    }
+
+    // 7. Update device communication timestamp
     const { error: updateError } = await supabaseAdmin
       .from("user_devices")
       .update({ last_seen_at: new Date().toISOString() })
       .eq("id", device.id);
 
     if (updateError) {
-      console.error("Device last-seen update failed:", updateError.message);
+      console.error(
+        "Device last-seen update failed:",
+        updateError.message
+      );
     }
 
+    // 8. Return reading, insights and ML prediction
     return NextResponse.json(
       {
         success: true,
         deviceId: device.id,
         reading: data,
         insights: savedInsights,
+        mlPrediction,
+        mlPredictionError,
       },
       { status: 201 }
     );
+
   } catch (error) {
     console.error("Device API error:", error);
 

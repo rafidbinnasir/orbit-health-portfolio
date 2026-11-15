@@ -90,16 +90,19 @@ export default function DeviceManagement() {
     }
   }
 
-  async function handleCopyToken() {
-    try {
-      await navigator.clipboard.writeText(deviceToken);
-      setCopied(true);
-    } catch {
-      setError(
-        "Clipboard access failed. Select and copy the token manually."
-      );
-    }
+ async function handleCopyToken() {
+  setCopied(false);
+  setError("");
+
+  try {
+    await navigator.clipboard.writeText(deviceToken);
+    setCopied(true);
+  } catch {
+    setError(
+      "Clipboard access failed. Select and copy the token manually."
+    );
   }
+}
 
   async function handleRevoke(deviceId: string) {
     if (
@@ -202,12 +205,13 @@ export default function DeviceManagement() {
             </code>
 
             <button
-              type="button"
-              onClick={handleCopyToken}
-              className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
-            >
-              {copied ? "Copied" : "Copy Token"}
-            </button>
+  type="button"
+  onClick={handleCopyToken}
+  disabled={!deviceToken}
+  className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+>
+  {copied ? "Copied — Copy Again" : "Copy Token"}
+</button>
           </div>
 
           <button
