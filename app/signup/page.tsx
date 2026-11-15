@@ -29,10 +29,11 @@ export default function SignupPage() {
         email: cleanEmail,
         password,
         options: {
-          data: {
-            full_name: cleanName,
-          },
-        },
+  emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/login?verified=true")}`,
+  data: {
+    full_name: cleanName,
+  },
+},
       });
 
       if (error) {

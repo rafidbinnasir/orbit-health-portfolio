@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase-browser";
@@ -12,6 +12,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get("verified") === "true") {
+    setSuccessMessage(
+      "Email verified successfully! You can now sign in to your account."
+    );
+  }
+
+  if (params.get("error") === "auth_callback_failed") {
+    setMessage(
+      "Email verification could not be completed. Please try the verification link again."
+    );
+  }
+}, []);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -161,14 +178,23 @@ export default function LoginPage() {
             />
           </div>
 
-          {message && (
-            <div
-              role="alert"
-              className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs font-medium text-rose-300"
-            >
-              {message}
-            </div>
-          )}
+        {successMessage && (
+  <div
+    role="status"
+    className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs font-medium text-emerald-300"
+  >
+    {successMessage}
+  </div>
+)}
+
+{message && (
+  <div
+    role="alert"
+    className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs font-medium text-rose-300"
+  >
+    {message}
+  </div>
+)}
 
           <button
             type="submit"
